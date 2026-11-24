@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>AIR BURGUNDY Pilote</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<!-- ============ connexion ============ -->
+<section id="login" class="login" hidden>
+  <div class="login-card">
+    <div class="mark big"><span class="air">Air</span><i></i><span class="bur">Burgundy</span></div>
+    <h1>Espace pilote</h1>
+    <p class="muted" id="loginHint">Saisis l'e-mail avec lequel la compagnie t'a invité. Tu recevras un code à 6 chiffres.</p>
+    <form id="emailForm">
+      <label>E-mail<input type="email" id="email" autocomplete="email" required placeholder="prenom@exemple.fr"></label>
+      <button class="btn primary" type="submit" id="sendBtn">Recevoir mon code</button>
+    </form>
+    <form id="codeForm" hidden>
+      <label>Code reçu par e-mail<input id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="123456"></label>
+      <button class="btn primary" type="submit" id="verifyBtn">Se connecter</button>
+      <button class="btn link" type="button" id="backBtn">Changer d'e-mail ou renvoyer un code</button>
+    </form>
+    <p class="error" id="loginErr" hidden></p>
+  </div>
+  <p class="foot muted" id="versionLine"></p>
+</section>
+
+<!-- ============ application ============ -->
+<div id="app" hidden>
+  <header class="top">
+    <div class="mark"><span class="air">Air</span><i></i><span class="bur">Burgundy</span><span class="tag">Pilote</span></div>
+    <nav id="tabs">
+      <button data-tab="vol" class="on">Vol</button>
+      <button data-tab="carnet">Carnet</button>
+      <button data-tab="profil">Profil</button>
+      <button data-tab="reglages">Réglages</button>
+    </nav>
+    <div class="who"><span id="whoName"></span><span class="mono muted" id="whoCall"></span><button class="btn small" id="logoutBtn">Déconnexion</button></div>
+  </header>
+
+  <!-- ---------- VOL ---------- -->
+  <main id="tab-vol" class="tab">
+    <div class="vol-grid">
+      <section class="panel prep">
+        <header class="ph"><h2>Préparation</h2><span class="status" id="acarsState">Prêt</span></header>
+        <div class="ofp" id="ofpBox">
+          <p class="muted">Charge ton dernier plan de vol SimBrief, puis ajuste si besoin.</p>
+        </div>
+        <button class="btn" id="ofpBtn">Charger mon OFP SimBrief</button>
+        <div class="fields">
+          <label>Numéro de vol<input id="fNo" class="mono" placeholder="BRG204"></label>
+          <label>Arrivée (OACI)<input id="fArr" class="mono" maxlength="4" placeholder="LFPG"></label>
+          <label>Avion<select id="fReg"><option value="">Auto (d'après la livrée)</option></select></label>
+        </div>
+        <div class="actions">
+          <button class="btn primary" id="startBtn">Démarrer l'ACARS</button>
+          <button class="btn danger" id="stopBtn" hidden>Arrêter le vol</button>
+        </div>
+        <p class="msg" id="acarsMsg"></p>
+        <p class="warn" id="acarsWarn" hidden></p>
+      </section>
+
+      <section class="panel live">
+        <header class="ph"><h2 id="liveTitle">En vol</h2><span class="mono muted" id="liveRoute">—</span></header>
+        <div class="gauges">
+          <div><span>Phase</span><b id="gPhase">—</b></div>
+          <div><span>Altitude</span><b id="gAlt" class="mono">—</b></div>
+          <div><span>Vitesse sol</span><b id="gGs" class="mono">—</b></div>
+          <div><span>Vario</span><b id="gVs" class="mono">—</b></div>
+          <div><span>Cap</span><b id="gHdg" class="mono">—</b></div>
+          <div><span>Carburant</span><b id="gFuel" class="mono">—</b></div>
+          <div><span>Prochain point</span><b id="gNext" class="mono">—</b></div>
+          <div><span>Reste</span><b id="gRem" class="mono">—</b></div>
+        </div>
+        <div class="landing" id="landingBox" hidden>Toucher <b id="lFpm" class="mono"></b> <span class="muted">·</span> <b id="lG" class="mono"></b></div>
+        <div id="map" class="map"></div>
+        <p class="link mono muted" id="linkLine"></p>
+      </section>
+    </div>
+  </main>
+
+  <!-- ---------- CARNET ---------- -->
+  <main id="tab-carnet" class="tab" hidden>
+    <section class="panel">
+      <header class="ph"><h2>Mon carnet de vol</h2><button class="btn small" id="refreshBtn">Actualiser</button></header>
+      <div class="ledger" id="myStats"></div>
+      <table class="board">
+        <thead><tr><th>Date</th><th>Vol</th><th>Avion</th><th>Route</th><th class="r">Bloc</th><th class="r">Distance</th><th class="r">Toucher</th><th>Statut</th></tr></thead>
+        <tbody id="myFlights"><tr class="empty"><td colspan="8">Aucun vol pour l'instant.</td></tr></tbody>
+      </table>
+    </section>
+  </main>
+
+  <!-- ---------- PROFIL ---------- -->
+  <main id="tab-profil" class="tab" hidden>
+    <section class="panel narrow">
+      <header class="ph"><h2>Mon profil</h2></header>
+      <form id="profileForm" class="form">
+        <label>Nom affiché<input id="pName" required maxlength="40"></label>
+        <label>Indicatif personnel<input id="pCall" class="mono" maxlength="10" placeholder="BRG12"></label>
+        <label>ID SimBrief (pseudo ou Pilot ID)<input id="pSb" class="mono" maxlength="40"></label>
+        <label>Base<input id="pBase" class="mono" maxlength="4" placeholder="LFSD"></label>
+        <label>E-mail<input id="pMail" disabled></label>
+        <div class="actions"><button class="btn primary" type="submit">Enregistrer</button><span class="msg" id="pMsg"></span></div>
+      </form>
+    </section>
+  </main>
+
+  <!-- ---------- RÉGLAGES ---------- -->
+  <main id="tab-reglages" class="tab" hidden>
+    <section class="panel narrow">
+      <header class="ph"><h2>Réglages</h2></header>
+      <form id="settingsForm" class="form">
+        <label>Adresse X-Plane (hôte:port)<input id="sXp" class="mono" placeholder="127.0.0.1:49000"></label>
+        <label>Intervalle d'envoi des positions (s)<input id="sRate" class="mono" type="number" min="2" max="30"></label>
+        <div class="actions"><button class="btn primary" type="submit">Enregistrer</button><span class="msg" id="sMsg"></span></div>
+      </form>
+      <p class="muted small">Compatible X-Plane 11 et 12, sans plugin : l'ACARS lit le simulateur en UDP (port 49000). L'immatriculation est détectée d'après la livrée AIR BURGUNDY chargée.</p>
+      <p><button class="btn link" id="siteBtn">Ouvrir airburgundyva.online</button></p>
+      <p class="muted small" id="aboutLine"></p>
+    </section>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

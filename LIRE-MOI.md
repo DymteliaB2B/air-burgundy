@@ -51,3 +51,15 @@ L'écriture (`POST /api/acars/*`) exige l'en-tête `X-API-Key`, qui doit corresp
 - **Site → Supabase** : renseigne l'URL du projet et la clé `anon` dans `web/config.js`. Elles sont publiques par conception : elles ne donnent accès qu'aux fonctions de lecture.
 - **Pilote → Supabase** : dans `config.json`, ajoute `"supabase_url"`, `"supabase_anon"`, `"api_key"` et `"simbrief_user"`. Voir `config.example.json`.
 - **En local** : si `web/config.js` est vide, le site et l'ACARS utilisent le serveur Python (`Lancer le site.bat`), comme avant.
+
+## Application pilote (AIR BURGUNDY Pilote.exe)
+
+- **Sources :** `pilot_app/` (pywebview). Construction de l'exe :
+  ```
+  .venv-app\Scripts\python -m PyInstaller --noconfirm --onefile --windowed --name "AIR BURGUNDY Pilote" --icon pilot_app/icon.ico --paths . --paths pilot_app --add-data "pilot_app/ui;ui" --add-data "data/airports.json;data" pilot_app/app.py
+  ```
+- **Connexion :** e-mail et code à 6 chiffres (Supabase Auth). Seuls les e-mails présents dans `va.pilots` peuvent se connecter :
+  `insert into va.pilots(email, name) values ('pilote@exemple.fr', 'Prénom Nom');`
+- **Session :** elle est enregistrée chiffrée (DPAPI Windows) dans `%APPDATA%\AIR BURGUNDY`.
+- **E-mails :** envoyés par Resend via le SMTP de Supabase, avec le modèle `supabase/email_code.html`.
+- **Aperçu de l'interface sans X-Plane :** servir `pilot_app/ui` et ouvrir `index.html?demo&in`.
