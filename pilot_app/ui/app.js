@@ -6,7 +6,7 @@ const fl = a => a == null ? '–' : (a >= 10000 ? 'FL' + String(Math.round(a / 1
 const hm = m => m == null ? '–' : `${Math.floor(m / 60)}h${String(m % 60).padStart(2, '0')}`;
 const dt = t => t ? new Date(t * 1000).toLocaleString('fr-FR', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'}) : '–';
 const fpmClass = f => f == null ? '' : (f >= -250 ? 'g' : f >= -450 ? 'm' : 'b');
-let api, ME = null, OFP = null, ROUTE = null, RUNNING = false, email = '';
+let api, ME = null, OFP = null, OFPX = null, ROUTE = null, RUNNING = false, email = '';
 
 window.addEventListener('pywebviewready', boot);
 async function boot() {
@@ -104,20 +104,107 @@ $('#settingsForm').onsubmit = async ev => {
 $('#siteBtn').onclick = () => api.open_site();
 
 /* ================= préparation & ACARS ================= */
-$('#ofpBtn').onclick = async () => {
-  $('#ofpBtn').disabled = true; $('#ofpBox').innerHTML = '<p class="muted">Chargement de l\'OFP…</p>';
+async function loadOfp() {
+  ['#ofpBtn', '#jourLoadBtn'].forEach(b => $(b).disabled = true);
+  $('#ofpBox').innerHTML = '<p class="muted">Chargement de l\'OFP…</p>';
   const r = await api.load_ofp(ME.profile.simbrief_id);
-  $('#ofpBtn').disabled = false;
+  ['#ofpBtn', '#jourLoadBtn'].forEach(b => $(b).disabled = RUNNING);
   if (!r.ok) { $('#ofpBox').innerHTML = `<p class="error">${esc(r.error)}</p>`; return; }
-  OFP = r.ofp; const o = OFP;
-  $('#ofpBox').innerHTML = `<div class="fno">${esc(o.flight_no || '—')}</div>
-    <div class="rt">${esc(o.origin?.icao)} → ${esc(o.destination?.icao)}${o.alternate?.icao ? ` <span class="muted">(dég. ${esc(o.alternate.icao)})</span>` : ''}</div>
-    <div class="muted small">${fl(o.cruise_alt)} · ${fmt(Math.round(o.distance_nm || 0))} NM · ${esc(o.aircraft || '')}</div>
-    <div class="route">${esc(o.route || '')}</div>`;
-  if (o.flight_no) $('#fNo').value = o.flight_no;
-  if (o.destination?.icao) $('#fArr').value = o.destination.icao;
-  drawPlan();
+  setOfp(r.ofp);
+}
+function setOfp(full) {
+  const {details, ...summary} = full || {};
+  OFP = full ? summary : null; OFPX = full ? details : null;
+  const o = OFP;
+  $('#ofpClearBtn').hidden = !o;
+  if (!o) {
+    $('#ofpBox').innerHTML = '<p class="muted">Charge ton dernier plan de vol SimBrief, puis ajuste si besoin.</p>';
+    $('#fNo').value = ''; $('#fArr').value = '';
+  } else {
+    $('#ofpBox').innerHTML = `<div class="fno">${esc(o.flight_no || '—')}</div>
+      <div class="rt">${esc(o.origin?.icao)} → ${esc(o.destination?.icao)}${o.alternate?.icao ? ` <span class="muted">(dég. ${esc(o.alternate.icao)})</span>` : ''}</div>
+      <div class="muted small">${fl(o.cruise_alt)} · ${fmt(Math.round(o.distance_nm || 0))} NM · ${esc(o.aircraft || '')}</div>
+      <div class="route">${esc(o.route || '')}</div>`;
+    if (o.flight_no) $('#fNo').value = o.flight_no;
+    if (o.destination?.icao) $('#fArr').value = o.destination.icao;
+  }
+  drawPlan(); renderJour();
+}
+$('#ofpBtn').onclick = loadOfp;
+$('#jourLoadBtn').onclick = loadOfp;
+$('#ofpClearBtn').onclick = () => setOfp(null);
+$('#jClearBtn').onclick = () => { if (RUNNING) return alert('Impossible pendant un vol en cours.'); setOfp(null); };
+$('#jPdfBtn').onclick = () => OFPX?.pdf_url && api.open_pdf(OFPX.pdf_url);
+$('#jToggle').onclick = () => {
+  const f = $('#jPlan'), show = f.hidden;
+  if (show && !f.childNodes.length && OFPX?.plan_html) f.appendChild(cleanHtml(OFPX.plan_html));
+  f.hidden = !show; $('#jToggle').textContent = show ? 'Masquer' : 'Afficher';
 };
+
+/* OFP SimBrief : on ne garde que la mise en forme (aucun script, aucun attribut, images https SimBrief seulement) */
+function cleanHtml(html) {
+  const ok = new Set(['DIV', 'PRE', 'B', 'STRONG', 'I', 'EM', 'U', 'BR', 'SPAN', 'P', 'TABLE', 'THEAD', 'TBODY', 'TR', 'TD', 'TH', 'H1', 'H2', 'H3', 'H4', 'HR', 'FONT', 'IMG']);
+  const src = new DOMParser().parseFromString(html, 'text/html').body;
+  const walk = node => {
+    const out = document.createDocumentFragment();
+    node.childNodes.forEach(c => {
+      if (c.nodeType === 3) out.appendChild(document.createTextNode(c.textContent));
+      else if (c.nodeType === 1 && ok.has(c.tagName)) {
+        const el = document.createElement(c.tagName === 'FONT' ? 'SPAN' : c.tagName);
+        if (c.tagName === 'IMG') { const u = c.getAttribute('src') || ''; if (!/^https:\/\/([a-z0-9-]+\.)*simbrief\.com\//i.test(u)) return; el.src = u; el.alt = ''; }
+        el.appendChild(walk(c)); out.appendChild(el);
+      } else if (c.nodeType === 1 && !['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'LINK', 'META'].includes(c.tagName)) out.appendChild(walk(c));
+    });
+    return out;
+  };
+  return walk(src);
+}
+
+/* ================= vol du jour ================= */
+const utc = t => t ? new Date(t * 1000).toISOString().slice(11, 16) : '–';
+const dur = s => s == null ? '–' : `${Math.floor(s / 3600)}h${String(Math.round(s % 3600 / 60)).padStart(2, '0')}`;
+const kg = v => v == null ? '–' : fmt(Math.round(v));
+const dl = rows => rows.filter(r => r).map(([k, v, hl]) => `<dt>${esc(k)}</dt><dd${hl ? ' class="hl"' : ''}>${esc(v)}</dd>`).join('');
+function renderJour() {
+  const x = OFPX, o = OFP;
+  $('#jourEmpty').hidden = !!x; $('#jour').hidden = !x;
+  if (!x) return;
+  const t = x.times, f = x.fuel, w = x.weights, g = x.general, u = x.units === 'lbs' ? 'lb' : 'kg';
+  $('#jTitle').textContent = `${o.flight_no || ''} · ${o.origin?.icao} → ${o.destination?.icao}`;
+  $('#jSub').textContent = [x.aircraft.name || x.aircraft.type, x.aircraft.engines, x.aircraft.reg,
+    o.generated ? 'OFP du ' + new Date(o.generated * 1000).toLocaleString('fr-FR', {day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'}) : null,
+    x.airac ? 'AIRAC ' + x.airac : null].filter(Boolean).join(' · ');
+  $('#jPdfBtn').hidden = !x.pdf_url;
+  $('#jUnitF').textContent = u; $('#jUnitW').textContent = u;
+  $('#jTimes').innerHTML = dl([['Départ bloc', utc(t.est_out)], ['Décollage', utc(t.est_off)], ['Atterrissage', utc(t.est_on)],
+    ['Arrivée bloc', utc(t.est_in)], ['Temps de vol', dur(t.est_time_enroute), 1], ['Temps bloc', dur(t.est_block)],
+    ['Roulage départ', dur(t.taxi_out)], ['Endurance', dur(t.endurance)]]);
+  $('#jFuel').innerHTML = dl([['Roulage', kg(f.taxi)], ['Délestage', kg(f.enroute_burn)], ['Réserve de route', kg(f.contingency)],
+    ['Dégagement', kg(f.alternate_burn)], ['Réserve finale', kg(f.reserve)], f.extra ? ['Supplément', kg(f.extra)] : null,
+    ['Au décollage', kg(f.plan_takeoff)], ['Au bloc', kg(f.plan_ramp), 1], ['À l\'atterrissage', kg(f.plan_landing)]]);
+  $('#jWeights').innerHTML = dl([['Passagers', fmt(w.pax_count)], ['Charge offerte', kg(w.payload)], ['Masse à vide', kg(w.oew)],
+    ['ZFW', `${kg(w.est_zfw)} / ${kg(w.max_zfw)}`], ['TOW', `${kg(w.est_tow)} / ${kg(w.max_tow)}`, 1], ['LW', `${kg(w.est_ldw)} / ${kg(w.max_ldw)}`]]);
+  $('#jCruise').innerHTML = dl([['Niveau initial', fl(+g.initial_altitude), 1], g.stepclimb_string ? ['Paliers', g.stepclimb_string] : null,
+    ['Profil', g.cruise_profile || '–'], ['Cost index', g.costindex || '–'], ['Mach / TAS', `${g.cruise_mach || '–'} / ${g.cruise_tas || '–'} kt`],
+    ['Vent moyen', g.avg_wind_dir ? `${g.avg_wind_dir}°/${+g.avg_wind_spd} kt (${+g.avg_wind_comp > 0 ? '+' : ''}${g.avg_wind_comp})` : '–'],
+    ['Distance', `${fmt(+g.route_distance)} NM (sol ${fmt(+g.air_distance)})`], ['Réserve route', g.cont_rule || '–']]);
+  const rte = g.route || o.route || '';
+  $('#jRoute').textContent = [g.sid_ident && !rte.includes(g.sid_ident) ? g.sid_ident : null, rte,
+                              g.star_ident && !rte.includes(g.star_ident) ? g.star_ident : null].filter(Boolean).join('  ·  ');
+  const apt = (lbl, a) => a ? `<div><span>${lbl}</span><b>${esc(a.icao)}</b> ${esc(a.name || '')}
+      <span>Piste ${esc(a.rwy || '–')} · altitude ${fmt(a.elev)} ft${a.trans_alt ? ` · TA ${fmt(a.trans_alt)} / TL FL${String(Math.round((a.trans_level || 0) / 100)).padStart(3, '0')}` : ''}</span></div>` : '';
+  $('#jApts').innerHTML = apt('Départ', x.origin) + apt('Arrivée', x.destination) + apt('Dégagement', x.alternate);
+  const wx = (lbl, icao, m, tf) => `<div><h4>${esc(lbl)} · ${esc(icao || '')}</h4><pre>${esc(m || 'METAR indisponible')}</pre><pre class="taf">${esc(tf || '')}</pre></div>`;
+  $('#jWx').innerHTML = wx('Départ', x.origin?.icao, x.weather.orig_metar, x.weather.orig_taf) +
+    wx('Arrivée', x.destination?.icao, x.weather.dest_metar, x.weather.dest_taf) +
+    (x.alternate ? wx('Dégagement', x.alternate.icao, x.weather.altn_metar, x.weather.altn_taf) : '');
+  $('#jNavCount').textContent = `${x.navlog.length} points`;
+  $('#jNav').innerHTML = x.navlog.map(n => `<tr class="${n.id === 'TOC' || n.id === 'TOD' ? 'toc' : ''}">
+    <td>${esc(n.id)}</td><td>${esc(n.via || '')}</td><td class="r">${n.alt != null ? fl(n.alt) : '–'}</td><td class="r">${esc(n.trk || '')}</td>
+    <td class="r">${esc(n.wind || '')}</td><td class="r">${n.oat != null ? n.oat + '°' : ''}</td><td class="r">${n.dist != null ? n.dist : ''}</td>
+    <td class="r">${dur(n.time)}</td><td class="r">${kg(n.fuel)}</td></tr>`).join('');
+  const f2 = $('#jPlan'); f2.replaceChildren(); f2.hidden = true; $('#jToggle').textContent = 'Afficher';
+}
 $('#startBtn').onclick = async () => {
   const plan = {flight_no: $('#fNo').value.trim().toUpperCase(), arr: $('#fArr').value.trim().toUpperCase(),
                 reg: $('#fReg').value, route: OFP};
@@ -132,7 +219,7 @@ $('#stopBtn').onclick = async () => {
 };
 function setRunning(on) {
   RUNNING = on; $('#startBtn').hidden = on; $('#stopBtn').hidden = !on; $('#stopBtn').disabled = false;
-  ['#fNo', '#fArr', '#fReg', '#ofpBtn'].forEach(s => $(s).disabled = on);
+  ['#fNo', '#fArr', '#fReg', '#ofpBtn', '#ofpClearBtn', '#jourLoadBtn', '#jClearBtn'].forEach(s => $(s).disabled = on);
 }
 function clearLive() {
   ['#gPhase', '#gAlt', '#gGs', '#gVs', '#gHdg', '#gFuel', '#gNext', '#gRem'].forEach(s => $(s).textContent = '—');
@@ -251,7 +338,8 @@ if (location.search.includes('demo')) setTimeout(() => {
     init: async () => ({version: 'démo', settings: {xp: '127.0.0.1:49000', rate: 5}, logged_in: location.search.includes('in'), me}),
     send_code: async () => ({ok: true}), verify: async () => ({ok: true, me}), me: async () => ({ok: true, me}),
     logout: async () => ({ok: true}), update_profile: async p => ({ok: true, profile: p}), save_settings: async s => ({ok: true, settings: s}),
-    load_ofp: async () => ({ok: true, ofp}), open_site: async () => ({ok: true}),
+    load_ofp: async () => { try { const r = await fetch('demo_ofp.json'); if (r.ok) return {ok: true, ofp: await r.json()}; } catch (e) {} return {ok: true, ofp}; },
+    open_site: async () => ({ok: true}), open_pdf: async () => ({ok: true}),
     start_flight: async () => { let i = 0;
       onAcars({state: 'vol', msg: 'Vol ouvert', flight_no: 'BRG204', reg: 'F-LAUR', dep: 'LFSD', arr: 'EDDF', sim: 'X-Plane 12', route: ofp});
       timer = setInterval(() => { i++; const t = i / 40;

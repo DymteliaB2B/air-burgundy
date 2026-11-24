@@ -13,7 +13,7 @@ from acars import Airports
 from backend import Session, ApiError, friendly, load_settings, save_settings
 from core import Engine
 
-VERSION = '1.0.0'
+VERSION = '1.1.0'
 
 
 class Api:
@@ -74,7 +74,7 @@ class Api:
         try:
             if not simbrief_id:
                 return {'ok': False, 'error': 'Renseigne ton ID SimBrief dans ton profil.'}
-            return self._ok(ofp=simbrief.fetch(simbrief_id))
+            return self._ok(ofp=simbrief.fetch(simbrief_id, full=True))
         except Exception as e:
             return self._err(e)
 
@@ -95,6 +95,12 @@ class Api:
     def _emit(self, st):
         if self._window:
             self._window.evaluate_js(f'window.onAcars && window.onAcars({json.dumps(st, ensure_ascii=False)})')
+
+    def open_pdf(self, url):
+        import webbrowser
+        if isinstance(url, str) and url.startswith('https://www.simbrief.com/'):
+            webbrowser.open(url); return self._ok()
+        return {'ok': False, 'error': 'lien PDF invalide'}
 
     def open_site(self):
         import webbrowser; webbrowser.open('https://airburgundyva.online'); return self._ok()

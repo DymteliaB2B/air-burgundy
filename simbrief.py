@@ -21,7 +21,7 @@ def _apt(a):
             'rwy': a.get('plan_rwy') or None}
 
 
-def fetch(user):
+def fetch(user, full=False):
     """user : pseudo SimBrief ou identifiant numérique (Pilot ID)."""
     key = 'userid' if str(user).isdigit() else 'username'
     q = urllib.parse.urlencode({key: user, 'json': 1})
@@ -54,6 +54,53 @@ def fetch(user):
         'aircraft': (d.get('aircraft') or {}).get('icaocode'), 'reg': (d.get('aircraft') or {}).get('reg'),
         'generated': _f((d.get('params') or {}).get('time_generated')),
         'fixes': out,
+        **({'details': details(d)} if full else {}),
+    }
+
+
+def _s(v):
+    """SimBrief renvoie '{}' pour les champs vides."""
+    return None if v in (None, '', '{}', {}, []) else v
+
+
+def details(d):
+    """OFP complet pour la page « Vol du jour » (jamais envoyé au site : reste dans l'application)."""
+    g, t, fu, w = d.get('general') or {}, d.get('times') or {}, d.get('fuel') or {}, d.get('weights') or {}
+    wx, ac, par = d.get('weather') or {}, d.get('aircraft') or {}, d.get('params') or {}
+    o, de, al = d.get('origin') or {}, d.get('destination') or {}, d.get('alternate') or {}
+    files = d.get('files') or {}
+    pdf = files.get('pdf') or {}
+    pdf_url = (files.get('directory', '').rstrip('/') + '/' + pdf['link']) if isinstance(pdf, dict) and pdf.get('link') else None
+    fixes = (d.get('navlog') or {}).get('fix', [])
+    if isinstance(fixes, dict): fixes = [fixes]
+    nav = [{'id': fx.get('ident'), 'name': _s(fx.get('name')), 'via': _s(fx.get('via_airway')), 'stage': fx.get('stage'),
+            'alt': _f(fx.get('altitude_feet')), 'dist': _f(fx.get('distance')), 'trk': _s(fx.get('track_mag')),
+            'wind': f"{fx.get('wind_dir', '')}/{fx.get('wind_spd', '')}" if _s(fx.get('wind_dir')) else None,
+            'oat': _f(fx.get('oat')), 'gs': _f(fx.get('groundspeed')), 'time': _f(fx.get('time_total')),
+            'fuel': _f(fx.get('fuel_plan_onboard')), 'freq': _s(fx.get('frequency'))} for fx in fixes]
+    apt = lambda a: {'icao': a.get('icao_code'), 'iata': _s(a.get('iata_code')), 'name': a.get('name'),
+                     'rwy': _s(a.get('plan_rwy')), 'elev': _f(a.get('elevation')),
+                     'trans_alt': _f(a.get('trans_alt')), 'trans_level': _f(a.get('trans_level'))} if a else None
+    return {
+        'units': par.get('units', 'kgs'), 'airac': _s(par.get('airac')), 'layout': _s(par.get('ofp_layout')),
+        'aircraft': {'type': ac.get('icaocode'), 'name': _s(ac.get('name')), 'engines': _s(ac.get('engines')),
+                     'reg': _s(ac.get('reg')), 'selcal': _s(ac.get('selcal'))},
+        'general': {k: _s(g.get(k)) for k in ('cruise_profile', 'climb_profile', 'descent_profile', 'costindex', 'cont_rule',
+                                              'initial_altitude', 'stepclimb_string', 'avg_wind_comp', 'avg_wind_dir',
+                                              'avg_wind_spd', 'avg_temp_dev', 'gc_distance', 'route_distance', 'air_distance',
+                                              'cruise_tas', 'cruise_mach', 'passengers', 'sid_ident', 'star_ident', 'route')},
+        'times': {k: _f(t.get(k)) for k in ('sched_out', 'sched_off', 'sched_on', 'sched_in', 'est_out', 'est_off', 'est_on',
+                                            'est_in', 'est_time_enroute', 'est_block', 'taxi_out', 'taxi_in', 'endurance',
+                                            'reserve_time', 'contfuel_time')},
+        'fuel': {k: _f(fu.get(k)) for k in ('taxi', 'enroute_burn', 'contingency', 'alternate_burn', 'reserve', 'extra',
+                                            'min_takeoff', 'plan_takeoff', 'plan_ramp', 'plan_landing', 'avg_fuel_flow', 'max_tanks')},
+        'weights': {k: _f(w.get(k)) for k in ('oew', 'pax_count', 'cargo', 'payload', 'est_zfw', 'max_zfw', 'est_tow', 'max_tow',
+                                              'est_ldw', 'max_ldw', 'est_ramp')},
+        'origin': apt(o), 'destination': apt(de), 'alternate': apt(al),
+        'weather': {k: _s(wx.get(k)) for k in ('orig_metar', 'orig_taf', 'dest_metar', 'dest_taf', 'altn_metar', 'altn_taf')},
+        'navlog': nav,
+        'plan_html': _s((d.get('text') or {}).get('plan_html')),
+        'pdf_url': pdf_url,
     }
 
 

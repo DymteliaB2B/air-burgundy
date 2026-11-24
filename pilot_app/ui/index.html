@@ -36,6 +36,7 @@
     <div class="mark"><span class="air">Air</span><i></i><span class="bur">Burgundy</span><span class="tag">Pilote</span></div>
     <nav id="tabs">
       <button data-tab="vol" class="on">Vol</button>
+      <button data-tab="jour">Vol du jour</button>
       <button data-tab="carnet">Carnet</button>
       <button data-tab="profil">Profil</button>
       <button data-tab="reglages">Réglages</button>
@@ -51,7 +52,10 @@
         <div class="ofp" id="ofpBox">
           <p class="muted">Charge ton dernier plan de vol SimBrief, puis ajuste si besoin.</p>
         </div>
-        <button class="btn" id="ofpBtn">Charger mon OFP SimBrief</button>
+        <div class="actions">
+          <button class="btn" id="ofpBtn">Charger mon OFP SimBrief</button>
+          <button class="btn" id="ofpClearBtn" hidden>Retirer l'OFP</button>
+        </div>
         <div class="fields">
           <label>Numéro de vol<input id="fNo" class="mono" placeholder="BRG204"></label>
           <label>Arrivée (OACI)<input id="fArr" class="mono" maxlength="4" placeholder="LFPG"></label>
@@ -81,6 +85,37 @@
         <div id="map" class="map"></div>
         <p class="link mono muted" id="linkLine"></p>
       </section>
+    </div>
+  </main>
+
+  <!-- ---------- VOL DU JOUR ---------- -->
+  <main id="tab-jour" class="tab" hidden>
+    <section class="panel" id="jourEmpty">
+      <header class="ph"><h2>Vol du jour</h2></header>
+      <p class="muted">Aucun OFP chargé. Génère ton plan de vol sur SimBrief, puis charge-le ici.</p>
+      <button class="btn primary" id="jourLoadBtn">Charger mon OFP SimBrief</button>
+    </section>
+    <div id="jour" hidden>
+      <section class="panel">
+        <header class="ph jour-head">
+          <div><h2 id="jTitle"></h2><p class="muted" id="jSub"></p></div>
+          <div class="actions"><button class="btn" id="jPdfBtn">Ouvrir le PDF SimBrief</button><button class="btn" id="jClearBtn">Retirer l'OFP</button></div>
+        </header>
+        <div class="jour-grid">
+          <div class="card"><h3>Horaires <small>UTC</small></h3><dl id="jTimes"></dl></div>
+          <div class="card"><h3>Carburant <small id="jUnitF"></small></h3><dl id="jFuel"></dl></div>
+          <div class="card"><h3>Masses <small id="jUnitW"></small></h3><dl id="jWeights"></dl></div>
+          <div class="card"><h3>Croisière</h3><dl id="jCruise"></dl></div>
+        </div>
+      </section>
+      <section class="panel"><header class="ph"><h2>Route</h2></header><p class="route-full mono" id="jRoute"></p><div class="apts" id="jApts"></div></section>
+      <section class="panel"><header class="ph"><h2>Météo</h2></header><div class="wx" id="jWx"></div></section>
+      <section class="panel"><header class="ph"><h2>Navlog</h2><span class="muted small" id="jNavCount"></span></header>
+        <div class="nav-wrap"><table class="board nav">
+          <thead><tr><th>Point</th><th>Voie</th><th class="r">Niveau</th><th class="r">Route</th><th class="r">Vent</th><th class="r">OAT</th><th class="r">Dist.</th><th class="r">Temps</th><th class="r">Carb. restant</th></tr></thead>
+          <tbody id="jNav"></tbody></table></div></section>
+      <section class="panel"><header class="ph"><h2>OFP complet</h2><button class="btn small" id="jToggle">Afficher</button></header>
+        <div id="jPlan" class="plan" hidden></div></section>
     </div>
   </main>
 

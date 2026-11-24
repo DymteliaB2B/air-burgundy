@@ -20,3 +20,4 @@ Thumbs.db
 build/
 dist/
 *.spec
+pilot_app/ui/demo_ofp.json
