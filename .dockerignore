@@ -1,0 +1,12 @@
+config.json
+.env
+data/*.db
+data/*.db-*
+_archive
+tools
+*.bat
+acars.py
+simbrief.py
+build_airports.py
+__pycache__
+.git

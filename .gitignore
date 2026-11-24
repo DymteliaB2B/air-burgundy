@@ -1,0 +1,17 @@
+# secrets & local config (clé ACARS, pseudo SimBrief)
+config.json
+.env
+
+# base de données et journaux (vivent sur le serveur, pas dans git)
+data/*.db
+data/*.db-*
+data/*.log
+data/*.err
+
+# divers
+_archive/
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+

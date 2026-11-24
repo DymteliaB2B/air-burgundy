@@ -1,0 +1,7 @@
+{
+  "api_key": "la-cle-ACARS-donnee-par-la-compagnie",
+  "supabase_url": "https://xxxxxxxx.supabase.co",
+  "supabase_anon": "cle-anon-publique-du-projet",
+  "pilots": ["Ton prénom"],
+  "simbrief_user": "ton-pseudo-ou-pilot-id-SimBrief"
+}

@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AIR BURGUNDY</title>
+<meta name="description" content="AIR BURGUNDY, compagnie aérienne virtuelle basée à Dijon. Vols en direct, flotte et carnet de vol.">
+<meta name="theme-color" content="#4a0b1e">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%234a0b1e'/%3E%3Cpath d='M16 9l7 7-7 7-7-7z' fill='%23c9a055'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="style.css?v=14">
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap top-in">
+    <a class="mark" href="#"><span class="air">Air</span><i aria-hidden="true"></i><span class="bur">Burgundy</span></a>
+    <nav>
+      <a href="#direct">En direct</a>
+      <a href="#flotte">Flotte</a>
+      <a href="#carnet">Carnet de vol</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<section class="intro wrap">
+  <div class="intro-head">
+    <p class="eyebrow">Compagnie virtuelle · Dijon-Longvic</p>
+    <h1>Le ciel,<br><em>en Grand Cru.</em></h1>
+  </div>
+  <div class="intro-body">
+    <p class="lede">AIR BURGUNDY relie la Bourgogne à l'Europe en Airbus A321neo XLR et A319. Chaque vol est relevé par notre ACARS et publié ici en temps réel. Pour le moment, l'ACARS est compatible uniquement avec X-Plane (11 et 12).</p>
+    <dl class="facts">
+      <div><dt>OACI</dt><dd>BRG</dd></div>
+      <div><dt>Indicatif</dt><dd>Burgundy</dd></div>
+      <div><dt>Base</dt><dd>LFSD</dd></div>
+      <div><dt>Flotte</dt><dd id="factFleet">–</dd></div>
+      <div><dt>Simulateur</dt><dd>X-Plane</dd></div>
+    </dl>
+  </div>
+</section>
+<figure class="banner wrap">
+  <img src="img/formation.jpg" alt="F-JERO, F-DIMI et F-NINO en formation au-dessus d'une mer de nuages" width="1840" height="660">
+  <figcaption>F-JERO, F-DIMI et F-NINO en formation au-dessus des nuages.</figcaption>
+</figure>
+
+<div class="wrap"><section class="ledger" id="stats" aria-label="Statistiques de la compagnie">
+  <div><span data-k="flights">–</span> vols</div>
+  <div><span data-k="hours">–</span> heures</div>
+  <div><span data-k="distance_nm">–</span> NM parcourus</div>
+  <div><span data-k="destinations">–</span> destinations</div>
+  <div>toucher moyen <span data-k="avg_landing_fpm">–</span> ft/min</div>
+</section></div>
+
+<section class="section wrap" id="direct">
+  <header class="sec-head">
+    <h2>En direct</h2>
+    <p class="status-line"><span class="dot" id="liveDot"></span><span id="liveSub">Connexion…</span></p>
+  </header>
+  <div class="board-wrap">
+    <table class="board">
+      <thead><tr><th>Vol</th><th>Avion</th><th>De</th><th>Vers</th><th>Phase</th><th class="r">Alt.</th><th class="r">Vitesse</th><th>Prochain point</th><th class="r">Reste</th></tr></thead>
+      <tbody id="liveBody"><tr class="empty"><td colspan="9">Aucun avion en vol pour le moment.</td></tr></tbody>
+    </table>
+  </div>
+  <div id="map" class="map"></div>
+</section>
+
+<section class="section wrap" id="flotte">
+  <header class="sec-head">
+    <h2>La flotte</h2>
+    <p class="aside">Chaque appareil porte le nom d'une ville de Bourgogne.</p>
+  </header>
+  <div class="fleet" id="fleet"></div>
+</section>
+
+<section class="section wrap" id="carnet">
+  <header class="sec-head">
+    <h2>Carnet de vol</h2>
+    <p class="aside">Les 25 derniers vols terminés. Cliquez sur une ligne pour le détail.</p>
+  </header>
+  <div class="board-wrap">
+    <table class="board log">
+      <thead><tr><th>Date</th><th>Vol</th><th>Avion</th><th>Route</th><th class="r">Bloc</th><th class="r">Distance</th><th class="r">Toucher</th><th>Statut</th></tr></thead>
+      <tbody id="flightsBody"><tr class="empty"><td colspan="8">Le carnet est vide pour l'instant.</td></tr></tbody>
+    </table>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-in">
+    <span class="mark small"><span class="air">Air</span><i aria-hidden="true"></i><span class="bur">Burgundy</span></span>
+    <p>Compagnie virtuelle fictive pour la simulation de vol, sans lien avec une compagnie réelle.</p>
+  </div>
+</footer>
+
+<dialog id="modal" class="sheet">
+  <button class="close" id="modalClose" aria-label="Fermer">Fermer</button>
+  <div id="modalBody"></div>
+</dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="config.js?v=1"></script>
+<script src="app.js?v=14"></script>
+</body>
+</html>
