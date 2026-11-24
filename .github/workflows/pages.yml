@@ -1,4 +1,4 @@
-# Publie le dossier web/ sur GitHub Pages à chaque push sur main.
+# Publie le dossier web/ sur GitHub Pages à chaque push sur main (site airburgundyva.online).
 name: Site AIR BURGUNDY
 on:
   push:
