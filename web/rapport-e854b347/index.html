@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Flight Report · AIR BURGUNDY</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%234a0b1e'/%3E%3Cpath d='M16 9l7 7-7 7-7-7z' fill='%23c9a055'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--paper:#f5f1ea;--card:#fbf9f5;--ink:#1f1416;--ink-2:#5b4d50;--ink-3:#8c7f81;--rule:#d9d0c4;--burg:#4a0b1e}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font:400 15px/1.5 "IBM Plex Sans",system-ui,sans-serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 24px 60px}
+  header{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--rule);padding-bottom:14px;margin-bottom:24px}
+  .mark{font:500 14px "IBM Plex Sans";letter-spacing:.14em;text-transform:uppercase}
+  .mark i{display:inline-block;width:.38em;height:.38em;background:#c9a055;transform:rotate(45deg);margin:0 .45em .1em}
+  h1{margin:0;font:400 40px/1 "Instrument Serif",serif}
+  .grid{display:grid;grid-template-columns:320px 1fr;gap:32px;align-items:start}
+  .ctl{display:flex;flex-direction:column;gap:18px;border-top:1px solid var(--ink);padding-top:16px}
+  label{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--ink-3)}
+  select,input{font:400 14px "IBM Plex Sans";background:var(--card);border:1px solid var(--rule);padding:9px 10px;color:var(--ink);border-radius:0}
+  .seg{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .seg button{font:500 13px "IBM Plex Sans";padding:9px 8px;border:1px solid var(--rule);background:var(--card);cursor:pointer;text-align:left}
+  .seg button small{display:block;font:400 11px "IBM Plex Mono";color:var(--ink-3)}
+  .seg button.on{border-color:var(--burg);box-shadow:inset 0 0 0 1px var(--burg)}
+  .btn{font:500 14px "IBM Plex Sans";padding:11px 16px;border:1px solid var(--burg);background:var(--burg);color:#f5f1ea;cursor:pointer}
+  .btn:disabled{opacity:.5}
+  .stage{border-top:1px solid var(--ink);padding-top:16px;display:flex;justify-content:center}
+  canvas{max-width:100%;max-height:78vh;height:auto;box-shadow:0 8px 30px rgba(31,20,22,.18)}
+  .msg{font-size:13px;color:var(--ink-3);margin:0}
+  @media (max-width:860px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><div class="mark">Air<i></i>Burgundy</div><h1>Flight Report</h1></header>
+  <div class="grid">
+    <aside class="ctl">
+      <label>Vol<select id="flight"><option>Chargement…</option></select></label>
+      <div><label>Format</label>
+        <div class="seg" id="formats">
+          <button data-f="story" class="on">Story<small>1080 × 1920</small></button>
+          <button data-f="portrait">Publication Insta<small>1080 × 1350</small></button>
+          <button data-f="square">Carré<small>1080 × 1080</small></button>
+          <button data-f="landscape">Facebook<small>1200 × 630</small></button>
+        </div></div>
+      <div><label>Thème</label>
+        <div class="seg" id="themes">
+          <button data-t="light" class="on">Clair<small>papier</small></button>
+          <button data-t="dark">Bordeaux<small>soirée</small></button>
+        </div></div>
+      <label>Légende (facultatif)<input id="caption" maxlength="60" placeholder="Premier vol vers la Norvège"></label>
+      <button class="btn" id="dl" disabled>Télécharger l'image</button>
+      <p class="msg" id="msg"></p>
+    </aside>
+    <section class="stage"><canvas id="cv" width="1080" height="1920"></canvas></section>
+  </div>
+</div>
+<script src="../config.js"></script>
+<script src="report.js"></script>
+</body>
+</html>
