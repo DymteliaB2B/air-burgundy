@@ -62,6 +62,12 @@ function wordmark(ctx, x, y, s, T, align = 'left') {
   ctx.fillStyle = '#c9a055'; ctx.beginPath(); ctx.moveTo(dx, dy - r); ctx.lineTo(dx + r, dy); ctx.lineTo(dx, dy + r); ctx.lineTo(dx - r, dy); ctx.fill();
   ctx.fillStyle = T.ink; ctx.font = `600 ${s}px "IBM Plex Sans"`; spaced(ctx, 'BURGUNDY', x0 + wa + gap, y, tr);
 }
+const MENTION = "Air Burgundy est une compagnie aérienne virtuelle regroupant des passionnés d'aéronautique bourguignons.";
+function wrapLines(ctx, text, maxW) {
+  const out = []; let line = '';
+  for (const w of text.split(' ')) { const t = line ? line + ' ' + w : w; if (ctx.measureText(t).width > maxW && line) { out.push(line); line = w; } else line = t; }
+  if (line) out.push(line); return out;
+}
 function fpmColor(f, T) { if (f == null) return T.ink; return f >= -250 ? '#2e8a55' : f >= -450 ? '#c08a1a' : '#c0392b'; }
 
 /* ---------------------------------------------------------------- carte de la trace */
@@ -120,13 +126,14 @@ async function render() {
   if (FMT === 'landscape') return renderLandscape(ctx, f, W, H, T, img, ac, stats, cap);
 
   const u = W / 1080, m = 76 * u;
-  const cfg = {story: {route: 190, gap: 1, map: true, cols: 2, img: 1}, portrait: {route: 160, gap: .7, map: false, cols: 3, img: 1},
-               square: {route: 140, gap: .5, map: false, cols: 3, img: .86}}[FMT];
+  const cfg = {story: {route: 190, gap: 1, map: true, cols: 2, img: 1, rh: 118, top: 76},
+               portrait: {route: 150, gap: .4, map: false, cols: 3, img: .92, rh: 108, top: 70},
+               square: {route: 108, gap: 0, map: false, cols: 3, img: .6, rh: 92, top: 58}}[FMT];
   let y = 96 * u;
   wordmark(ctx, m, y, 26 * u, T);
   ctx.font = `500 ${22 * u}px "IBM Plex Mono"`; ctx.fillStyle = T.ink3; spaced(ctx, 'FLIGHT REPORT', W - m, y, 4 * u, 'right');
   y += 30 * u; ctx.fillStyle = T.ink; ctx.fillRect(m, y, W - 2 * m, 2 * u);
-  y += 76 * u;
+  y += cfg.top * u;
   ctx.font = `500 ${40 * u}px "IBM Plex Mono"`; ctx.fillStyle = T.accent; ctx.fillText(f.flight_no || '', m, y);
   ctx.font = `400 ${26 * u}px "IBM Plex Sans"`; ctx.fillStyle = T.ink3; ctx.textAlign = 'right'; ctx.fillText(dateFr(f.started), W - m, y); ctx.textAlign = 'left';
   // route
@@ -142,31 +149,33 @@ async function render() {
   y += 40 * u * cfg.gap + 30 * u;
   if (img) { const b = opaqueBox(img), iw = (W - 2 * m) * cfg.img, ih = iw * b.h / b.w;
     ctx.drawImage(img, b.x, b.y, b.w, b.h, m, y, iw, ih); y += ih; }
-  y += 54 * u;
+  y += (FMT === 'square' ? 36 : 54) * u;
   ctx.font = `500 ${32 * u}px "IBM Plex Mono"`; ctx.fillStyle = T.ink; const rw = spaced(ctx, f.reg || '', m, y, 3 * u);
   ctx.font = `italic 400 ${42 * u}px "Instrument Serif"`; ctx.fillStyle = T.accent; ctx.fillText(ac.name || '', m + rw + 22 * u, y);
   ctx.font = `400 ${24 * u}px "IBM Plex Sans"`; ctx.fillStyle = T.ink3; ctx.textAlign = 'right';
   ctx.fillText([ac.type, f.sim].filter(Boolean).join(' · '), W - m, y); ctx.textAlign = 'left';
   // statistiques
-  y += 40 * u; ctx.fillStyle = T.rule; ctx.fillRect(m, y, W - 2 * m, 2 * u);
-  const cols = cfg.cols, cw = (W - 2 * m) / cols, rh = 118 * u;
+  y += (FMT === 'square' ? 26 : 40) * u; ctx.fillStyle = T.rule; ctx.fillRect(m, y, W - 2 * m, 2 * u);
+  const cols = cfg.cols, cw = (W - 2 * m) / cols, rh = cfg.rh * u;
   stats.forEach(([k, v, c], i) => {
     const cx = m + (i % cols) * cw, cy = y + Math.floor(i / cols) * rh;
-    ctx.font = `400 ${22 * u}px "IBM Plex Sans"`; ctx.fillStyle = T.ink3; ctx.fillText(k, cx, cy + 42 * u);
+    ctx.font = `400 ${22 * u}px "IBM Plex Sans"`; ctx.fillStyle = T.ink3; ctx.fillText(k, cx, cy + (rh / u - 76) * u);
     ctx.font = `500 ${(cols === 2 ? 46 : 40) * u}px "IBM Plex Mono"`; ctx.fillStyle = c || T.ink;
-    fitText(ctx, v, `500 {s}px "IBM Plex Mono"`, (cols === 2 ? 46 : 40) * u, cw - 20 * u); ctx.fillText(v, cx, cy + 92 * u);
+    fitText(ctx, v, `500 {s}px "IBM Plex Mono"`, (cols === 2 ? 46 : 40) * u, cw - 20 * u); ctx.fillText(v, cx, cy + (rh / u - 26) * u);
     if (i % cols === 0 && i) { ctx.fillStyle = T.rule; ctx.fillRect(m, cy, W - 2 * m, 1 * u); }
   });
   y += Math.ceil(stats.length / cols) * rh;
   if (f.landing_g) { ctx.font = `400 ${22 * u}px "IBM Plex Mono"`; ctx.fillStyle = T.ink3; }
   // carte (story)
-  const footY = H - 70 * u;
-  if (cfg.map && footY - y > 260 * u) drawMap(ctx, f, m, y + 24 * u, W - 2 * m, footY - y - 90 * u, T);
-  // pied
-  ctx.fillStyle = T.rule; ctx.fillRect(m, footY - 40 * u, W - 2 * m, 1 * u);
+  const footY = H - 150 * u;                       // trait du pied de page
+  if (cfg.map && footY - y > 240 * u) drawMap(ctx, f, m, y + 24 * u, W - 2 * m, footY - y - 54 * u, T);
+  // pied : pilote, site, mention
+  ctx.fillStyle = T.rule; ctx.fillRect(m, footY, W - 2 * m, 1 * u);
   ctx.font = `400 ${24 * u}px "IBM Plex Sans"`; ctx.fillStyle = T.ink2;
-  ctx.fillText(f.pilot ? `Commandant ${f.pilot}` : '', m, footY);
-  ctx.font = `500 ${22 * u}px "IBM Plex Mono"`; ctx.fillStyle = T.ink3; ctx.textAlign = 'right'; ctx.fillText('airburgundyva.online', W - m, footY); ctx.textAlign = 'left';
+  ctx.fillText(f.pilot ? `Vol effectué par : ${f.pilot}` : '', m, footY + 44 * u);
+  ctx.font = `500 ${22 * u}px "IBM Plex Mono"`; ctx.fillStyle = T.ink3; ctx.textAlign = 'right'; ctx.fillText('airburgundyva.online', W - m, footY + 44 * u); ctx.textAlign = 'left';
+  ctx.font = `italic 400 ${25 * u}px "Instrument Serif"`; ctx.fillStyle = T.ink3;
+  wrapLines(ctx, MENTION, W - 2 * m).forEach((l, i) => ctx.fillText(l, m, footY + 86 * u + i * 28 * u));
 }
 
 function renderLandscape(ctx, f, W, H, T, img, ac, stats, cap) {
@@ -183,7 +192,7 @@ function renderLandscape(ctx, f, W, H, T, img, ac, stats, cap) {
   const names = [shortName(f.dep_airport), shortName(f.arr_airport)].filter(Boolean).join('  —  ');
   fitText(ctx, names, '400 {s}px "IBM Plex Sans"', 18, colW); ctx.fillText(names, m, y);
   if (cap) { y += 40; ctx.font = 'italic 400 30px "Instrument Serif"'; ctx.fillStyle = T.accent; fitText(ctx, cap, 'italic 400 {s}px "Instrument Serif"', 30, colW); ctx.fillText(cap, m, y); }
-  y = H - 210; ctx.fillStyle = T.rule; ctx.fillRect(m, y, colW, 1);
+  y = H - 232; ctx.fillStyle = T.rule; ctx.fillRect(m, y, colW, 1);
   const cw = colW / 3;
   stats.forEach(([k, v, c], i) => { const cx = m + (i % 3) * cw, cy = y + Math.floor(i / 3) * 78;
     ctx.font = '400 15px "IBM Plex Sans"'; ctx.fillStyle = T.ink3; ctx.fillText(k, cx, cy + 30);
@@ -193,9 +202,10 @@ function renderLandscape(ctx, f, W, H, T, img, ac, stats, cap) {
   if (img) { const b = opaqueBox(img), ih = rw * b.h / b.w; ctx.drawImage(img, b.x, b.y, b.w, b.h, rx, 120, rw, ih);
     ctx.font = '500 22px "IBM Plex Mono"'; ctx.fillStyle = T.ink; const w = spaced(ctx, f.reg || '', rx, 120 + ih + 44, 2);
     ctx.font = 'italic 400 30px "Instrument Serif"'; ctx.fillStyle = T.accent; ctx.fillText(ac.name || '', rx + w + 16, 120 + ih + 44);
-    drawMap(ctx, f, rx, 120 + ih + 70, rw, H - (120 + ih + 70) - 70, T); }
-  ctx.font = '400 16px "IBM Plex Sans"'; ctx.fillStyle = T.ink2; ctx.fillText(f.pilot ? `Commandant ${f.pilot}` : '', m, H - 30);
-  ctx.font = '500 15px "IBM Plex Mono"'; ctx.fillStyle = T.ink3; ctx.textAlign = 'right'; ctx.fillText('airburgundyva.online', W - m, H - 30); ctx.textAlign = 'left';
+    drawMap(ctx, f, rx, 120 + ih + 70, rw, H - (120 + ih + 70) - 66, T); }
+  ctx.font = '400 15px "IBM Plex Sans"'; ctx.fillStyle = T.ink2; ctx.fillText(f.pilot ? `Vol effectué par : ${f.pilot}` : '', m, H - 34);
+  ctx.font = '500 14px "IBM Plex Mono"'; ctx.fillStyle = T.ink3; ctx.textAlign = 'right'; ctx.fillText('airburgundyva.online', W - m, H - 34); ctx.textAlign = 'left';
+  ctx.font = 'italic 400 16px "Instrument Serif"'; ctx.fillStyle = T.ink3; ctx.fillText(MENTION, m, H - 13);
 }
 
 /* ---------------------------------------------------------------- interface */
