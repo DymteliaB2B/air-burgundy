@@ -31,6 +31,7 @@ DREFS = [
     ('eng1', 'sim/flightmodel/engine/ENGN_running[0]'),
     ('eng2', 'sim/flightmodel/engine/ENGN_running[1]'),
     ('xpver', 'sim/version/xplane_internal_version'),
+    ('vy', 'sim/flightmodel/position/local_vy'),             # m/s, vitesse verticale vraie (sans le retard du vario)
 ]
 LIVERY_LEN = 160
 LIVERY0 = len(DREFS)   # index des caracteres de sim/aircraft/view/acf_livery_path
@@ -42,15 +43,17 @@ class XPlane:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind(('0.0.0.0', 0)); self.sock.settimeout(0.5)
         self.v = {}; self.chars = {}; self.last_rx = 0
-        # toucher mesure au paquet pres (20 Hz) : derniere VS en l'air + g max apres contact
+        # toucher mesure au paquet pres (20 Hz) avec la vitesse verticale vraie (local_vy) :
+        # descente la plus forte dans la demi-seconde avant le contact + g max apres contact
         self.air_vs = None; self.td_vs = None; self.td_t = None; self.td_g = 1.0; self._was_ground = None
+        self._air_hist = []
 
     def sub(self, idx, dref, freq):
         self.sock.sendto(b'RREF\x00' + struct.pack('<ii400s', freq, idx, dref.encode()), self.addr)
 
     def subscribe(self, freq=5):
         for i, (n, d) in enumerate(DREFS):
-            self.sub(i, d, 20 if n in ('vs', 'ground', 'gn', 'agl') else freq)
+            self.sub(i, d, 20 if n in ('vs', 'vy', 'ground', 'gn', 'agl') else freq)
         for k in range(LIVERY_LEN):
             self.sub(LIVERY0 + k, f'sim/aircraft/view/acf_livery_path[{k}]', 1)
 
@@ -84,10 +87,13 @@ class XPlane:
         if 'ground' not in self.v or 'vs' not in self.v:
             return
         g = self.v['ground'] > 0.5; now = time.time()
+        fpm = self.v['vy'] * 196.850394 if 'vy' in self.v else self.v['vs']
         if not g:
-            self.air_vs = self.v['vs']
-        elif self._was_ground is False and self.air_vs is not None:
-            self.td_vs = self.air_vs; self.td_t = now; self.td_g = self.v.get('gn', 1.0)
+            self.air_vs = fpm
+            self._air_hist = [(t, x) for t, x in self._air_hist if now - t < 1.0] + [(now, fpm)]
+        elif self._was_ground is False and self.air_vs is not None and (self.td_t is None or now - self.td_t > 15):
+            win = [x for t, x in self._air_hist if now - t <= 0.6] or [self.air_vs]
+            self.td_vs = min(win); self.td_t = now; self.td_g = self.v.get('gn', 1.0)   # rebonds ignores 15 s
         if g and self.td_t and now - self.td_t < 2.5:
             self.td_g = max(self.td_g, self.v.get('gn', 1.0))
         self._was_ground = g

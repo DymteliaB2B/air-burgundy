@@ -79,7 +79,8 @@ def value(name):
         'sim/flightmodel/position/elevation': s['alt'] / ft,
         'sim/flightmodel/position/y_agl': max(0, s['alt'] / ft - (aelev if phase in ('descent', 'rollout', 'taxi_in', 'park') else delev)),
         'sim/flightmodel/position/groundspeed': s['gs'] / 1.943844, 'sim/flightmodel/position/true_psi': s['hdg'],
-        'sim/flightmodel/position/vh_ind_fpm': s['vs'], 'sim/flightmodel/position/indicated_airspeed': s['gs'] * (0.62 if s['alt'] > 20000 else 0.95),
+        'sim/flightmodel/position/vh_ind_fpm': 45.0 if (phase == 'descent' and s['alt'] - aelev * 3.28 < 30) else s['vs'],   # vario en retard : positif à l'arrondi, comme le vrai
+        'sim/flightmodel/position/local_vy': (s['vs'] if not (phase == 'rollout') else 0.0) / 196.850394, 'sim/flightmodel/position/indicated_airspeed': s['gs'] * (0.62 if s['alt'] > 20000 else 0.95),
         'sim/flightmodel/failures/onground_any': float(s['ground']), 'sim/flightmodel/weight/m_fuel_total': s['fuel'],
         'sim/time/paused': 0.0, 'sim/flightmodel/forces/g_nrml': s['gn'],
         'sim/cockpit2/controls/parking_brake_ratio': s['pbrake'],

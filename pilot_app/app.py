@@ -13,7 +13,7 @@ from acars import Airports
 from backend import Session, ApiError, friendly, load_settings, save_settings
 from core import Engine
 
-VERSION = '1.1.0'
+VERSION = '1.2.0'
 
 
 class Api:
