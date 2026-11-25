@@ -71,7 +71,7 @@ function wrapLines(ctx, text, maxW) {
 function fpmColor(f, T) { if (f == null) return T.ink; return f >= -250 ? '#2e8a55' : f >= -450 ? '#c08a1a' : '#c0392b'; }
 
 /* ---------------------------------------------------------------- carte de la trace */
-function drawMap(ctx, f, x, y, w, h, T) {
+async function drawMap(ctx, f, x, y, w, h, T) {
   ctx.fillStyle = T.card; ctx.fillRect(x, y, w, h);
   ctx.strokeStyle = T.rule; ctx.lineWidth = 1; ctx.strokeRect(x + .5, y + .5, w - 1, h - 1);
   const trk = (f.track || []).map(p => [p.lat, p.lon]).filter(p => p[0] != null);
@@ -83,17 +83,44 @@ function drawMap(ctx, f, x, y, w, h, T) {
   const arr = f.arr_airport?.lat != null ? [f.arr_airport.lat, f.arr_airport.lon] : trk[trk.length - 1];
   const all = [...trk, ...plan, dep, arr].filter(Boolean);
   if (all.length < 2) return;
-  const lat0 = all.reduce((a, p) => a + p[0], 0) / all.length, k = Math.cos(lat0 * Math.PI / 180);
-  const xs = all.map(p => p[1] * k), ys = all.map(p => p[0]);
-  const minx = Math.min(...xs), maxx = Math.max(...xs), miny = Math.min(...ys), maxy = Math.max(...ys);
-  const pad = Math.min(w, h) * 0.14, sc = Math.min((w - 2 * pad) / ((maxx - minx) || 1e-3), (h - 2 * pad) / ((maxy - miny) || 1e-3));
-  const ox = x + w / 2 - (minx + maxx) / 2 * sc, oy = y + h / 2 + (miny + maxy) / 2 * sc;
-  const P = p => [ox + p[1] * k * sc, oy - p[0] * sc];
-  // repère discret
+  // projection Web Mercator (celle des tuiles OpenStreetMap), zoom continu pour cadrer la route
+  const merc = (lat, lon) => { const sn = Math.sin(lat * Math.PI / 180);
+    return [(lon + 180) / 360, 0.5 - Math.log((1 + sn) / (1 - sn)) / (4 * Math.PI)]; };
+  const mp = all.map(p => merc(p[0], p[1]));
+  const minx = Math.min(...mp.map(q => q[0])), maxx = Math.max(...mp.map(q => q[0]));
+  const miny = Math.min(...mp.map(q => q[1])), maxy = Math.max(...mp.map(q => q[1]));
+  const pad = Math.min(w, h) * 0.16;
+  const scale = Math.min((w - 2 * pad) / ((maxx - minx) || 1e-6), (h - 2 * pad) / ((maxy - miny) || 1e-6), 256 * 2 ** 11);
+  const cxm = (minx + maxx) / 2, cym = (miny + maxy) / 2;
+  const P = p => { const q = merc(p[0], p[1]); return [x + w / 2 + (q[0] - cxm) * scale, y + h / 2 + (q[1] - cym) * scale]; };
   ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
-  ctx.strokeStyle = T.rule; ctx.lineWidth = 1; ctx.setLineDash([2, 8]);
-  for (let i = 1; i < 4; i++) { ctx.beginPath(); ctx.moveTo(x, y + h * i / 4); ctx.lineTo(x + w, y + h * i / 4); ctx.stroke(); }
-  ctx.setLineDash([]);
+  // fond de carte : tuiles OSM (CORS autorisé), affichées en gris pour rester dans la charte
+  try {
+    const zf = Math.log2(scale / 256), z = Math.max(1, Math.min(12, Math.floor(zf) + 1)), n = 2 ** z, ts = scale / n;
+    const wx0 = cxm - w / 2 / scale, wy0 = cym - h / 2 / scale, wx1 = cxm + w / 2 / scale, wy1 = cym + h / 2 / scale;
+    const tiles = [];
+    for (let ty = Math.floor(wy0 * n); ty <= Math.floor(wy1 * n); ty++) for (let tx = Math.floor(wx0 * n); tx <= Math.floor(wx1 * n); tx++) {
+      if (ty < 0 || ty >= n) continue;
+      const url = `https://tile.openstreetmap.org/${z}/${((tx % n) + n) % n}/${ty}.png`;
+      tiles.push(new Promise(ok => { const im = new Image(); im.crossOrigin = 'anonymous';
+        const t = setTimeout(() => ok(null), 8000);
+        im.onload = () => { clearTimeout(t); ok({im, tx, ty}); }; im.onerror = () => { clearTimeout(t); ok(null); }; im.src = url; }));
+    }
+    const got = (await Promise.all(tiles)).filter(Boolean);
+    if (!got.length) throw new Error('tuiles indisponibles');
+    ctx.filter = THEME === 'dark' ? 'grayscale(1) invert(.92) contrast(.9) brightness(.8)' : 'grayscale(1) contrast(.9) brightness(1.06)';
+    got.forEach(({im, tx, ty}) => ctx.drawImage(im, x + w / 2 + (tx / n - cxm) * scale, y + h / 2 + (ty / n - cym) * scale, ts + 1, ts + 1));
+    ctx.filter = 'none';
+    ctx.fillStyle = THEME === 'dark' ? 'rgba(42,7,18,.35)' : 'rgba(245,241,234,.25)'; ctx.fillRect(x, y, w, h);   // teinte de la charte
+    const as = Math.max(12, w / 60); ctx.font = `400 ${as}px "IBM Plex Sans"`;
+    const at = '© OpenStreetMap', aw = ctx.measureText(at).width;
+    ctx.fillStyle = THEME === 'dark' ? 'rgba(42,7,18,.75)' : 'rgba(245,241,234,.85)'; ctx.fillRect(x + w - aw - as * 1.2, y + h - as * 1.7, aw + as * 1.2, as * 1.7);
+    ctx.fillStyle = T.ink3; ctx.textAlign = 'right'; ctx.fillText(at, x + w - as * 0.6, y + h - as * 0.5); ctx.textAlign = 'left';
+  } catch (e) {
+    ctx.filter = 'none'; ctx.strokeStyle = T.rule; ctx.lineWidth = 1; ctx.setLineDash([2, 8]);
+    for (let i = 1; i < 4; i++) { ctx.beginPath(); ctx.moveTo(x, y + h * i / 4); ctx.lineTo(x + w, y + h * i / 4); ctx.stroke(); }
+    ctx.setLineDash([]);
+  }
   if (plan.length > 1) { ctx.strokeStyle = T.plan; ctx.lineWidth = 3; ctx.setLineDash([10, 10]); ctx.beginPath();
     plan.forEach((p, i) => { const [a, b] = P(p); i ? ctx.lineTo(a, b) : ctx.moveTo(a, b); }); ctx.stroke(); ctx.setLineDash([]); }
   if (trk.length > 1) { ctx.strokeStyle = T.track; ctx.lineWidth = 6; ctx.lineJoin = ctx.lineCap = 'round'; ctx.beginPath();
@@ -110,20 +137,22 @@ function drawMap(ctx, f, x, y, w, h, T) {
 }
 
 /* ---------------------------------------------------------------- rendu */
+let RENDER_ID = 0;
 async function render() {
-  const f = CUR; if (!f) return;
+  const f = CUR; if (!f) return; const rid = ++RENDER_ID;
   const [W, H] = FORMATS[FMT], T = THEMES[THEME], cv = $('#cv'), ctx = cv.getContext('2d');
-  cv.width = W; cv.height = H;
   await Promise.all(['400 40px "Instrument Serif"', 'italic 400 40px "Instrument Serif"', '400 20px "IBM Plex Sans"', '600 20px "IBM Plex Sans"',
                      '500 20px "IBM Plex Mono"'].map(x => document.fonts.load(x)));
   let img = null; try { img = await loadImg(`../img/profile-${f.reg}.webp`); } catch (e) {}
+  if (rid !== RENDER_ID) return;
+  cv.width = W; cv.height = H;
   ctx.fillStyle = T.bg; ctx.fillRect(0, 0, W, H);
   const ac = FLEET[f.reg] || {}, cap = $('#caption').value.trim();
   const stats = [
     ['Temps de vol', hm(f.air_min)], ['Distance', f.distance_nm ? fmt(Math.round(f.distance_nm)) + ' NM' : '–'],
     ['Toucher', f.landing_fpm != null ? `${f.landing_fpm} ft/min` : '–', fpmColor(f.landing_fpm, T)],
     ['Temps bloc', hm(f.block_min)], ['Niveau max', fl(f.max_alt)], ['Carburant', f.fuel_used != null ? fmt(f.fuel_used) + ' kg' : '–']];
-  if (FMT === 'landscape') return renderLandscape(ctx, f, W, H, T, img, ac, stats, cap);
+  if (FMT === 'landscape') return await renderLandscape(ctx, f, W, H, T, img, ac, stats, cap);
 
   const u = W / 1080, m = 76 * u;
   const cfg = {story: {route: 190, gap: 1, map: true, cols: 2, img: 1, rh: 118, top: 76},
@@ -168,7 +197,7 @@ async function render() {
   if (f.landing_g) { ctx.font = `400 ${22 * u}px "IBM Plex Mono"`; ctx.fillStyle = T.ink3; }
   // carte (story)
   const footY = H - 150 * u;                       // trait du pied de page
-  if (cfg.map && footY - y > 240 * u) drawMap(ctx, f, m, y + 24 * u, W - 2 * m, footY - y - 54 * u, T);
+  if (cfg.map && footY - y > 240 * u) await drawMap(ctx, f, m, y + 24 * u, W - 2 * m, footY - y - 54 * u, T);
   // pied : pilote, site, mention
   ctx.fillStyle = T.rule; ctx.fillRect(m, footY, W - 2 * m, 1 * u);
   ctx.font = `400 ${24 * u}px "IBM Plex Sans"`; ctx.fillStyle = T.ink2;
@@ -178,7 +207,7 @@ async function render() {
   wrapLines(ctx, MENTION, W - 2 * m).forEach((l, i) => ctx.fillText(l, m, footY + 86 * u + i * 28 * u));
 }
 
-function renderLandscape(ctx, f, W, H, T, img, ac, stats, cap) {
+async function renderLandscape(ctx, f, W, H, T, img, ac, stats, cap) {
   const m = 44, colW = 520;
   wordmark(ctx, m, 62, 18, T);
   ctx.font = '500 16px "IBM Plex Mono"'; ctx.fillStyle = T.ink3; spaced(ctx, 'FLIGHT REPORT', W - m, 62, 3, 'right');
@@ -202,7 +231,7 @@ function renderLandscape(ctx, f, W, H, T, img, ac, stats, cap) {
   if (img) { const b = opaqueBox(img), ih = rw * b.h / b.w; ctx.drawImage(img, b.x, b.y, b.w, b.h, rx, 120, rw, ih);
     ctx.font = '500 22px "IBM Plex Mono"'; ctx.fillStyle = T.ink; const w = spaced(ctx, f.reg || '', rx, 120 + ih + 44, 2);
     ctx.font = 'italic 400 30px "Instrument Serif"'; ctx.fillStyle = T.accent; ctx.fillText(ac.name || '', rx + w + 16, 120 + ih + 44);
-    drawMap(ctx, f, rx, 120 + ih + 70, rw, H - (120 + ih + 70) - 66, T); }
+    await drawMap(ctx, f, rx, 120 + ih + 70, rw, H - (120 + ih + 70) - 66, T); }
   ctx.font = '400 15px "IBM Plex Sans"'; ctx.fillStyle = T.ink2; ctx.fillText(f.pilot ? `Vol effectué par : ${f.pilot}` : '', m, H - 34);
   ctx.font = '500 14px "IBM Plex Mono"'; ctx.fillStyle = T.ink3; ctx.textAlign = 'right'; ctx.fillText('airburgundyva.online', W - m, H - 34); ctx.textAlign = 'left';
   ctx.font = 'italic 400 16px "Instrument Serif"'; ctx.fillStyle = T.ink3; ctx.fillText(MENTION, m, H - 13);
