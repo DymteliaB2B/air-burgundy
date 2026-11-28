@@ -149,9 +149,15 @@ function renderStats(s) {
   document.querySelectorAll('#stats [data-k]').forEach(el => { const v = s[el.dataset.k]; el.textContent = v == null ? '–' : fmt(v); });
 }
 
+// profils rendus à la même échelle (64 px/m) : chaque image garde sa largeur relative, les avions restent à l'échelle
+const PROFILE = {'A340-600': [4917, 1133]}, PROFILE_STD = [2950, 834];
+const profileSize = a => PROFILE[a.type] || PROFILE_STD;
+
 function renderFleet(list) {
   $('#factFleet').textContent = list.length + ' Airbus';
+  const wmax = Math.max(PROFILE_STD[0], ...list.map(a => profileSize(a)[0]));
   $('#fleet').innerHTML = list.map(a => {
+    const [pw, ph] = profileSize(a);
     const L_ = a.live;
     const where = L_ ? `<div class="where live">En vol, ${esc(L_.flight_no)} ${esc(L_.dep || '')} – ${esc(L_.arr || L_.planned_arr || '…')}</div>`
                      : `<div class="where">Au sol à ${esc(a.location_airport?.name || a.location)} (${esc(a.location)})</div>`;
@@ -163,7 +169,7 @@ function renderFleet(list) {
         ${where}
         <div class="nums"><span>${esc(a.livery)}</span><span>${fmt(a.flights)} vols</span><span>${fmt(a.hours)} h</span><span>${fmt(a.distance_nm)} NM</span></div>
       </div>
-      <img class="pic" src="img/profile-${esc(a.reg)}.webp" alt="Profil de ${esc(a.reg)} ${esc(a.name)}" width="2950" height="834" loading="lazy">
+      <img class="pic" src="img/profile-${esc(a.reg)}.webp" alt="Profil de ${esc(a.reg)} ${esc(a.name)}" width="${pw}" height="${ph}" style="width:${(100 * pw / wmax).toFixed(2)}%" loading="lazy">
     </article>`;
   }).join('');
 }

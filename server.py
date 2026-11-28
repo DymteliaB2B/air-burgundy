@@ -31,6 +31,7 @@ FLEET = [
     ('F-JERO', "Ville d’Autun", 'A321neo XLR', 'PW1130G-JM', 'Édition Mosaïque', 'img/profile-F-JERO.webp'),
     ('F-PINO', 'Ville de Beaune', 'A321neo XLR', 'PW1130G-JM', 'Classique', 'img/profile-F-PINO.webp'),
     ('F-LAUR', 'Ville de Mâcon', 'A319', 'CFM56-5B', 'Vendanges', 'img/profile-F-LAUR.webp'),
+    ('F-ALIX', 'Ville de Meursault', 'A340-600', 'Trent 556', 'Signature', 'img/profile-F-ALIX.webp'),
 ]
 LIVE_TIMEOUT = 180          # s sans position -> l'avion n'apparait plus sur la carte
 LOST_TIMEOUT = 6 * 3600     # s sans position -> vol actif clos en "perdu"

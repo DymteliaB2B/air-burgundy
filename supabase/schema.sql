@@ -43,7 +43,8 @@ insert into va.aircraft(reg, name, type, engines, livery, image, location, sort)
   ('F-NINO', 'Ville de Montceau', 'A321neo XLR', 'PW1130G-JM', 'Classique',         'img/profile-F-NINO.webp', 'LFSD', 2),
   ('F-JERO', 'Ville d’Autun',     'A321neo XLR', 'PW1130G-JM', 'Édition Mosaïque',  'img/profile-F-JERO.webp', 'LFSD', 3),
   ('F-PINO', 'Ville de Beaune',   'A321neo XLR', 'PW1130G-JM', 'Classique',         'img/profile-F-PINO.webp', 'LFSD', 4),
-  ('F-LAUR', 'Ville de Mâcon',    'A319',        'CFM56-5B',   'Vendanges',         'img/profile-F-LAUR.webp', 'LFSD', 5)
+  ('F-LAUR', 'Ville de Mâcon',    'A319',        'CFM56-5B',   'Vendanges',         'img/profile-F-LAUR.webp', 'LFSD', 5),
+  ('F-ALIX', 'Ville de Meursault', 'A340-600',   'Trent 556',  'Signature',         'img/profile-F-ALIX.webp', 'LFSD', 6)
 on conflict (reg) do update set name = excluded.name, type = excluded.type, engines = excluded.engines,
   livery = excluded.livery, image = excluded.image, sort = excluded.sort;
 update va.aircraft set location_airport = '{"icao":"LFSD","name":"Dijon Longvic","lat":47.26582,"lon":5.09498}'
